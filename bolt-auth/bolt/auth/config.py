@@ -10,6 +10,7 @@ from .signals import user_logged_in
 class AuthConfig(PackageConfig):
     default_auto_field = "bolt.db.models.AutoField"
     name = "bolt.auth"
+    label = "boltauth"
     verbose_name = "Authentication and Authorization"
 
     def ready(self):

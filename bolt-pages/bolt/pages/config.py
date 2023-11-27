@@ -8,6 +8,7 @@ from .registry import registry
 
 class BoltPagesConfig(PackageConfig):
     name = "bolt.pages"
+    label = "boltpages"
 
     def ready(self):
         for pacakge_config in packages.get_package_configs():

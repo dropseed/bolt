@@ -5,7 +5,7 @@ from bolt.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("sessions", "0001_initial"),
+        ("boltsessions", "0001_initial"),
     ]
 
     operations = [
