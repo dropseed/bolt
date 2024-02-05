@@ -4,7 +4,7 @@ from bolt.auth import get_user_model
 from bolt.db import models, transaction
 from bolt.db.utils import IntegrityError, OperationalError, ProgrammingError
 from bolt.preflight import Error
-from bolt.runtime import settings
+from bolt.runtime import SettingsReference
 from bolt.utils import timezone
 
 from .exceptions import OAuthUserAlreadyExistsError
@@ -21,7 +21,7 @@ class OAuthConnection(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        SettingsReference("AUTH_USER_MODEL"),
         on_delete=models.CASCADE,
         related_name="oauth_connections",
     )
@@ -123,7 +123,7 @@ class OAuthConnection(models.Model):
     def connect(
         cls,
         *,
-        user: settings.AUTH_USER_MODEL,
+        user,
         provider_key: str,
         oauth_token: "OAuthToken",
         oauth_user: "OAuthUser",

@@ -4,6 +4,7 @@ from importlib import import_module
 
 from bolt.db import migrations
 from bolt.db.migrations.loader import MigrationLoader
+from bolt.db.migrations.migration import SettingsTuple
 from bolt.db.migrations.serializer import Serializer, serializer_factory
 from bolt.packages import packages
 from bolt.runtime import get_version
@@ -143,9 +144,9 @@ class MigrationWriter:
         # Format dependencies and write out swappable dependencies right
         dependencies = []
         for dependency in self.migration.dependencies:
-            if dependency[0] == "__setting__":
+            if isinstance(dependency, SettingsTuple):
                 dependencies.append(
-                    "        migrations.swappable_dependency(settings.%s),"
+                    "        migrations.settings_dependency(settings.%s),"
                     % dependency[1]
                 )
                 imports.add("from bolt.runtime import settings")

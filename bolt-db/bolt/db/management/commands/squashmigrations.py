@@ -3,13 +3,12 @@ import shutil
 
 from bolt.db import DEFAULT_DB_ALIAS, connections, migrations
 from bolt.db.migrations.loader import AmbiguityError, MigrationLoader
-from bolt.db.migrations.migration import SwappableTuple
+from bolt.db.migrations.migration import SettingsTuple
 from bolt.db.migrations.optimizer import MigrationOptimizer
 from bolt.db.migrations.writer import MigrationWriter
 from bolt.legacy.management.base import BaseCommand, CommandError
 from bolt.legacy.management.utils import run_formatters
 from bolt.packages import packages
-from bolt.runtime import settings
 from bolt.utils.version import get_docs_version
 
 
@@ -151,11 +150,8 @@ class Command(BaseCommand):
                 )
             operations.extend(smigration.operations)
             for dependency in smigration.dependencies:
-                if isinstance(dependency, SwappableTuple):
-                    if settings.AUTH_USER_MODEL == dependency.setting:
-                        dependencies.add(("__setting__", "AUTH_USER_MODEL"))
-                    else:
-                        dependencies.add(dependency)
+                if isinstance(dependency, SettingsTuple):
+                    dependencies.add(dependency)
                 elif dependency[0] != smigration.package_label or first_migration:
                     dependencies.add(dependency)
             first_migration = False

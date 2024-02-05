@@ -11,8 +11,7 @@ from bolt.db.models.deletion import CASCADE, SET_DEFAULT, SET_NULL
 from bolt.db.models.query_utils import PathInfo
 from bolt.db.models.utils import make_model_tuple
 from bolt.packages import packages
-from bolt.runtime import settings
-from bolt.runtime.user_settings import SettingsReference
+from bolt.runtime import SettingsReference, settings
 from bolt.utils.functional import cached_property
 
 from . import Field
@@ -118,7 +117,6 @@ class RelatedField(FieldCacheMixin, Field):
             *self._check_related_name_is_valid(),
             *self._check_related_query_name_is_valid(),
             *self._check_relation_model_exists(),
-            *self._check_referencing_to_swapped_model(),
             *self._check_clashes(),
         ]
 
@@ -191,33 +189,13 @@ class RelatedField(FieldCacheMixin, Field):
             if rel_is_string
             else self.remote_field.model._meta.object_name
         )
-        if rel_is_missing and (
-            rel_is_string or not self.remote_field.model._meta.swapped
-        ):
+        if rel_is_missing and rel_is_string:
             return [
                 preflight.Error(
                     "Field defines a relation with model '%s', which is either "
                     "not installed, or is abstract." % model_name,
                     obj=self,
                     id="fields.E300",
-                )
-            ]
-        return []
-
-    def _check_referencing_to_swapped_model(self):
-        if (
-            self.remote_field.model not in self.opts.packages.get_models()
-            and not isinstance(self.remote_field.model, str)
-            and self.remote_field.model._meta.swapped
-        ):
-            return [
-                preflight.Error(
-                    "Field defines a relation with the model '%s', which has "
-                    "been swapped out." % self.remote_field.model._meta.label,
-                    hint="Update the relation to point at 'settings.%s'."
-                    % self.remote_field.model._meta.swappable,
-                    obj=self,
-                    id="fields.E301",
                 )
             ]
         return []
@@ -415,21 +393,6 @@ class RelatedField(FieldCacheMixin, Field):
             return base_q & descriptor_filter
         return base_q
 
-    @property
-    def swappable_setting(self):
-        """
-        Get the setting that this is powered from for swapping, or None
-        if it's not swapped in / marked with swappable=False.
-        """
-        if self.swappable:
-            # Work out string form of "to"
-            if isinstance(self.remote_field.model, str):
-                to_string = self.remote_field.model
-            else:
-                to_string = self.remote_field.model._meta.label
-            return packages.get_swappable_settings_name(to_string)
-        return None
-
     def set_attributes_from_rel(self):
         self.name = self.name or (
             self.remote_field.model._meta.model_name
@@ -511,7 +474,6 @@ class ForeignObject(RelatedField):
         related_query_name=None,
         limit_choices_to=None,
         parent_link=False,
-        swappable=True,
         **kwargs,
     ):
         if rel is None:
@@ -535,7 +497,6 @@ class ForeignObject(RelatedField):
 
         self.from_fields = from_fields
         self.to_fields = to_fields
-        self.swappable = swappable
 
     def __copy__(self):
         obj = super().__copy__()
@@ -643,13 +604,21 @@ class ForeignObject(RelatedField):
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
+        print(
+            args,
+            kwargs,
+            type(self.remote_field.model),
+            hasattr(self.remote_field.model, "setting_name"),
+        )
         kwargs["on_delete"] = self.remote_field.on_delete
         kwargs["from_fields"] = self.from_fields
         kwargs["to_fields"] = self.to_fields
 
         if self.remote_field.parent_link:
             kwargs["parent_link"] = self.remote_field.parent_link
-        if isinstance(self.remote_field.model, str):
+        if isinstance(self.remote_field.model, SettingsReference):
+            kwargs["to"] = self.remote_field.model
+        elif isinstance(self.remote_field.model, str):
             if "." in self.remote_field.model:
                 package_label, model_name = self.remote_field.model.split(".")
                 kwargs["to"] = f"{package_label}.{model_name.lower()}"
@@ -657,24 +626,7 @@ class ForeignObject(RelatedField):
                 kwargs["to"] = self.remote_field.model.lower()
         else:
             kwargs["to"] = self.remote_field.model._meta.label_lower
-        # If swappable is True, then see if we're actually pointing to the target
-        # of a swap.
-        swappable_setting = self.swappable_setting
-        if swappable_setting is not None:
-            # If it's already a settings reference, error
-            if hasattr(kwargs["to"], "setting_name"):
-                if kwargs["to"].setting_name != swappable_setting:
-                    raise ValueError(
-                        "Cannot deconstruct a ForeignKey pointing to a model "
-                        "that is swapped in place of more than one model ({} and {})".format(
-                            kwargs["to"].setting_name, swappable_setting
-                        )
-                    )
-            # Set it
-            kwargs["to"] = SettingsReference(
-                kwargs["to"],
-                swappable_setting,
-            )
+        print(kwargs)
         return name, path, args, kwargs
 
     def resolve_related_fields(self):
@@ -842,12 +794,8 @@ class ForeignObject(RelatedField):
         setattr(cls, self.name, self.forward_related_accessor_class(self))
 
     def contribute_to_related_class(self, cls, related):
-        # Internal FK's - i.e., those with a related name ending with '+' -
-        # and swapped models don't get a related descriptor.
-        if (
-            not self.remote_field.is_hidden()
-            and not related.related_model._meta.swapped
-        ):
+        # Internal FK's - i.e., those with a related name ending with '+'
+        if not self.remote_field.is_hidden():
             setattr(
                 cls._meta.concrete_model,
                 related.get_accessor_name(),
@@ -1282,7 +1230,6 @@ class ManyToManyField(RelatedField):
         through_fields=None,
         db_constraint=True,
         db_table=None,
-        swappable=True,
         **kwargs,
     ):
         try:
@@ -1327,7 +1274,6 @@ class ManyToManyField(RelatedField):
         )
 
         self.db_table = db_table
-        self.swappable = swappable
 
     def check(self, **kwargs):
         return [
@@ -1692,25 +1638,6 @@ class ManyToManyField(RelatedField):
                 kwargs["through"] = self.remote_field.through
             elif not self.remote_field.through._meta.auto_created:
                 kwargs["through"] = self.remote_field.through._meta.label
-        # If swappable is True, then see if we're actually pointing to the target
-        # of a swap.
-        swappable_setting = self.swappable_setting
-        if swappable_setting is not None:
-            # If it's already a settings reference, error.
-            if hasattr(kwargs["to"], "setting_name"):
-                if kwargs["to"].setting_name != swappable_setting:
-                    raise ValueError(
-                        "Cannot deconstruct a ManyToManyField pointing to a "
-                        "model that is swapped in place of more than one model "
-                        "({} and {})".format(
-                            kwargs["to"].setting_name, swappable_setting
-                        )
-                    )
-
-            kwargs["to"] = SettingsReference(
-                kwargs["to"],
-                swappable_setting,
-            )
         return name, path, args, kwargs
 
     def _get_path_info(self, direct=False, filtered_relation=None):
@@ -1850,7 +1777,6 @@ class ManyToManyField(RelatedField):
         # The intermediate m2m model is not auto created if:
         #  1) There is a manually specified intermediate, or
         #  2) The class owning the m2m field is abstract.
-        #  3) The class owning the m2m field has been swapped out.
         if not cls._meta.abstract:
             if self.remote_field.through:
 
@@ -1860,7 +1786,7 @@ class ManyToManyField(RelatedField):
                 lazy_related_operation(
                     resolve_through_model, cls, self.remote_field.through, field=self
                 )
-            elif not cls._meta.swapped:
+            else:
                 self.remote_field.through = create_many_to_many_intermediary_model(
                     self, cls
                 )
@@ -1873,11 +1799,8 @@ class ManyToManyField(RelatedField):
 
     def contribute_to_related_class(self, cls, related):
         # Internal M2Ms (i.e., those with a related name ending with '+')
-        # and swapped models don't get a related descriptor.
-        if (
-            not self.remote_field.is_hidden()
-            and not related.related_model._meta.swapped
-        ):
+        # don't get a related descriptor.
+        if not self.remote_field.is_hidden():
             setattr(
                 cls,
                 related.get_accessor_name(),

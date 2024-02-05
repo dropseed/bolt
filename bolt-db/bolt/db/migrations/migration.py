@@ -222,7 +222,7 @@ class Migration:
         return name
 
 
-class SwappableTuple(tuple):
+class SettingsTuple(tuple):
     """
     Subclass of tuple so Bolt can tell this was originally a swappable
     dependency when it reads the migration file.
@@ -234,6 +234,6 @@ class SwappableTuple(tuple):
         return self
 
 
-def swappable_dependency(value):
+def settings_dependency(value):
     """Turn a setting value into a dependency."""
-    return SwappableTuple((value.split(".", 1)[0], "__first__"), value)
+    return SettingsTuple((value.split(".", 1)[0], "__first__"), value)

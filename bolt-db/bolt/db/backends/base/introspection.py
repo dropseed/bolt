@@ -137,8 +137,6 @@ class BaseDatabaseIntrospection:
             for model in self.get_migratable_models():
                 if not model._meta.managed:
                     continue
-                if model._meta.swapped:
-                    continue
                 sequence_list.extend(
                     self.get_sequences(
                         cursor, model._meta.db_table, model._meta.local_fields

@@ -1483,7 +1483,7 @@ class BaseDatabaseSchemaEditor:
         Return a list of all index SQL statements (field indexes,
         index_together, Meta.indexes) for the specified model.
         """
-        if not model._meta.managed or model._meta.proxy or model._meta.swapped:
+        if not model._meta.managed or model._meta.proxy:
             return []
         output = []
         for field in model._meta.local_fields:

@@ -238,7 +238,7 @@ class PackageConfig:
                 f"Package '{self.label}' doesn't have a '{model_name}' model."
             )
 
-    def get_models(self, include_auto_created=False, include_swapped=False):
+    def get_models(self, include_auto_created=False):
         """
         Return an iterable of models.
 
@@ -246,7 +246,6 @@ class PackageConfig:
 
         - auto-created models for many-to-many relations without
           an explicit intermediate table,
-        - models that have been swapped out.
 
         Set the corresponding keyword argument to True to include such models.
         Keyword arguments aren't documented; they're a private API.
@@ -254,8 +253,6 @@ class PackageConfig:
         self.packages.check_models_ready()
         for model in self.models.values():
             if model._meta.auto_created and not include_auto_created:
-                continue
-            if model._meta.swapped and not include_swapped:
                 continue
             yield model
 

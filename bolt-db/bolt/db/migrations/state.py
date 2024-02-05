@@ -13,7 +13,6 @@ from bolt.exceptions import FieldDoesNotExist
 from bolt.packages import PackageConfig
 from bolt.packages.registry import Packages
 from bolt.packages.registry import packages as global_packages
-from bolt.runtime import settings
 from bolt.utils.functional import cached_property
 from bolt.utils.module_loading import import_string
 
@@ -573,7 +572,7 @@ class ProjectState:
     def from_packages(cls, packages):
         """Take an Packages and return a ProjectState matching it."""
         app_models = {}
-        for model in packages.get_models(include_swapped=True):
+        for model in packages.get_models():
             model_state = ModelState.from_model(model)
             app_models[
                 (model_state.package_label, model_state.name_lower)
@@ -606,7 +605,7 @@ class StatePackages(Packages):
     additions and removals.
     """
 
-    def __init__(self, real_packages, models, ignore_swappable=False):
+    def __init__(self, real_packages, models):
         # Any packages in self.real_packages should have all their models included
         # in the render. We don't use the original model instances as there
         # are some variables that refer to the Packages object.
@@ -635,10 +634,7 @@ class StatePackages(Packages):
         # There shouldn't be any operations pending at this point.
         from bolt.db.preflight import _check_lazy_references
 
-        ignore = (
-            {make_model_tuple(settings.AUTH_USER_MODEL)} if ignore_swappable else set()
-        )
-        errors = _check_lazy_references(self, ignore=ignore)
+        errors = _check_lazy_references(self)
         if errors:
             raise ValueError("\n".join(error.msg for error in errors))
 

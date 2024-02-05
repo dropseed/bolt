@@ -163,15 +163,14 @@ class Packages:
 
     # This method is performance-critical at least for Bolt's test suite.
     @functools.cache
-    def get_models(self, include_auto_created=False, include_swapped=False):
+    def get_models(self, include_auto_created=False):
         """
         Return a list of all installed models.
 
         By default, the following models aren't included:
 
         - auto-created models for many-to-many relations without
-          an explicit intermediate table,
-        - models that have been swapped out.
+          an explicit intermediate table
 
         Set the corresponding keyword argument to True to include such models.
         """
@@ -179,9 +178,7 @@ class Packages:
 
         result = []
         for package_config in self.package_configs.values():
-            result.extend(
-                package_config.get_models(include_auto_created, include_swapped)
-            )
+            result.extend(package_config.get_models(include_auto_created))
         return result
 
     def get_model(self, package_label, model_name=None, require_ready=True):
@@ -279,29 +276,6 @@ class Packages:
         if model is None:
             raise LookupError(f"Model '{package_label}.{model_name}' not registered.")
         return model
-
-    @functools.cache
-    def get_swappable_settings_name(self, to_string):
-        """
-        For a given model string (e.g. "auth.User"), return the name of the
-        corresponding settings name if it refers to a swappable model. If the
-        referred model is not swappable, return None.
-
-        This method is decorated with @functools.cache because it's performance
-        critical when it comes to migrations. Since the swappable settings don't
-        change after Bolt has loaded the settings, there is no reason to get
-        the respective settings attribute over and over again.
-        """
-        to_string = to_string.lower()
-        for model in self.get_models(include_swapped=True):
-            swapped = model._meta.swapped
-            # Is this model swapped out for the model given by to_string?
-            if swapped and swapped.lower() == to_string:
-                return model._meta.swappable
-            # Is this model swappable and the one given by to_string?
-            if model._meta.swappable and model._meta.label_lower == to_string:
-                return model._meta.swappable
-        return None
 
     def set_available_packages(self, available):
         """

@@ -7,7 +7,7 @@ from bolt.db import DEFAULT_DB_ALIAS, OperationalError, connections, router
 from bolt.db.migrations import Migration
 from bolt.db.migrations.autodetector import MigrationAutodetector
 from bolt.db.migrations.loader import MigrationLoader
-from bolt.db.migrations.migration import SwappableTuple
+from bolt.db.migrations.migration import SettingsTuple
 from bolt.db.migrations.optimizer import MigrationOptimizer
 from bolt.db.migrations.questioner import (
     InteractiveMigrationQuestioner,
@@ -305,13 +305,8 @@ class Command(BaseCommand):
                 leaf_migration.operations.extend(migration.operations)
 
                 for dependency in migration.dependencies:
-                    if isinstance(dependency, SwappableTuple):
-                        if settings.AUTH_USER_MODEL == dependency.setting:
-                            leaf_migration.dependencies.append(
-                                ("__setting__", "AUTH_USER_MODEL")
-                            )
-                        else:
-                            leaf_migration.dependencies.append(dependency)
+                    if isinstance(dependency, SettingsTuple):
+                        leaf_migration.dependencies.append(dependency)
                     elif dependency[0] != migration.package_label:
                         leaf_migration.dependencies.append(dependency)
             # Optimize migration.

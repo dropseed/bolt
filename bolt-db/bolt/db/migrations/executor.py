@@ -1,5 +1,4 @@
 from bolt.db import migrations, router
-from bolt.packages.registry import packages as global_packages
 
 from .exceptions import InvalidMigrationPlan
 from .loader import MigrationLoader
@@ -358,10 +357,6 @@ class MigrationExecutor:
         for operation in migration.operations:
             if isinstance(operation, migrations.CreateModel):
                 model = packages.get_model(migration.package_label, operation.name)
-                if model._meta.swapped:
-                    # We have to fetch the model to test with from the
-                    # main app cache, as it's not a direct dependency.
-                    model = global_packages.get_model(model._meta.swapped)
                 if should_skip_detecting_model(migration, model):
                     continue
                 db_table = model._meta.db_table
@@ -374,10 +369,6 @@ class MigrationExecutor:
                 model = packages.get_model(
                     migration.package_label, operation.model_name
                 )
-                if model._meta.swapped:
-                    # We have to fetch the model to test with from the
-                    # main app cache, as it's not a direct dependency.
-                    model = global_packages.get_model(model._meta.swapped)
                 if should_skip_detecting_model(migration, model):
                     continue
 
