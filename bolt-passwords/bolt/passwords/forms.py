@@ -5,7 +5,7 @@ from bolt.auth import get_user_model
 from bolt.db.forms import ModelForm
 from bolt.exceptions import ValidationError
 from bolt.mail import EmailMultiAlternatives
-from bolt.passwords import password_validation
+from bolt.passwords import validators
 from bolt.passwords.tokens import default_token_generator
 from bolt.templates import Template
 from bolt.utils.encoding import force_bytes
@@ -49,7 +49,7 @@ class BaseUserCreationForm(ModelForm):
         # label="Password",
         strip=False,
         # widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
-        # help_text=password_validation.password_validators_help_text_html(),
+        # help_text=validators.password_validators_help_text_html(),
     )
     password2 = forms.CharField(
         # label="Password confirmation",
@@ -87,7 +87,7 @@ class BaseUserCreationForm(ModelForm):
         password = self.cleaned_data.get("password2")
         if password:
             try:
-                password_validation.validate_password(password, self.instance)
+                validators.validate_password(password, self.instance)
             except ValidationError as error:
                 self.add_error("password2", error)
 
@@ -160,17 +160,8 @@ class PasswordResetForm(forms.Form):
         that prevent inactive users and users with unusable passwords from
         resetting their password.
         """
-        active_users = get_user_model()._default_manager.filter(
-            **{
-                "email__iexact": email,
-                "is_active": True,
-            }
-        )
-        return (
-            u
-            for u in active_users
-            if u.has_usable_password() and _unicode_ci_compare(email, u.email)
-        )
+        active_users = get_user_model()._default_manager.filter(email__iexact=email)
+        return (u for u in active_users if _unicode_ci_compare(email, u.email))
 
     def save(
         self,
@@ -219,7 +210,7 @@ class SetPasswordForm(forms.Form):
         # label="New password",
         # widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
         strip=False,
-        # help_text=password_validation.password_validators_help_text_html(),
+        # help_text=validators.password_validators_help_text_html(),
     )
     new_password2 = forms.CharField(
         # label="New password confirmation",
@@ -239,7 +230,7 @@ class SetPasswordForm(forms.Form):
                 self.error_messages["password_mismatch"],
                 code="password_mismatch",
             )
-        password_validation.validate_password(password2, self.user)
+        validators.validate_password(password2, self.user)
         return password2
 
     def save(self, commit=True):

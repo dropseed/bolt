@@ -5,11 +5,9 @@ PASSWORD_RESET_TIMEOUT: int = 60 * 60 * 24 * 3
 # password using different algorithms will be converted automatically
 # upon login
 PASSWORD_HASHERS: list = [
-    "bolt.auth.hashers.PBKDF2PasswordHasher",
-    "bolt.auth.hashers.PBKDF2SHA1PasswordHasher",
-    "bolt.auth.hashers.Argon2PasswordHasher",
-    "bolt.auth.hashers.BCryptSHA256PasswordHasher",
-    "bolt.auth.hashers.ScryptPasswordHasher",
+    "bolt.passwords.hashers.PBKDF2PasswordHasher",
+    "bolt.passwords.hashers.PBKDF2SHA1PasswordHasher",
+    "bolt.passwords.hashers.Argon2PasswordHasher",
+    "bolt.passwords.hashers.BCryptSHA256PasswordHasher",
+    "bolt.passwords.hashers.ScryptPasswordHasher",
 ]
-
-PASSWORD_VALIDATORS: list = []
