@@ -1,0 +1,175 @@
+from bolt.db import models
+
+from .hashers import (
+    hash_password,
+)
+
+
+# TODO validators
+class PasswordField(models.CharField):
+    def __init__(self, *args, **kwargs):
+        kwargs["max_length"] = 128
+        super().__init__(*args, **kwargs)
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        if kwargs.get("max_length") == 128:
+            del kwargs["max_length"]
+        return name, path, args, kwargs
+
+    def pre_save(self, model_instance, add):
+        value = super().pre_save(model_instance, add)
+        if value:
+            value = hash_password(value)
+        return value
+
+
+# class UserManager(models.Manager):
+#     use_in_migrations = True
+
+#     def create_user(self, username, email=None, password=None, **extra_fields):
+#         extra_fields.setdefault("is_staff", False)
+#         if not username:
+#             raise ValueError("The given username must be set")
+#         email = self.normalize_email(email)
+#         # Lookup the real model class from the global app registry so this
+#         # manager method can be used in migrations. This is fine because
+#         # managers are by definition working on the real model.
+#         GlobalUserModel = packages.get_model(
+#             self.model._meta.package_label, self.model._meta.object_name
+#         )
+#         username = GlobalUserModel.normalize_username(username)
+#         user = self.model(username=username, email=email, **extra_fields)
+#         user.password = hash_password(password)
+#         user.save(using=self._db)
+#         return user
+
+#     @classmethod
+#     def normalize_email(cls, email):
+#         """
+#         Normalize the email address by lowercasing the domain part of it.
+#         """
+#         email = email or ""
+#         try:
+#             email_name, domain_part = email.strip().rsplit("@", 1)
+#         except ValueError:
+#             pass
+#         else:
+#             email = email_name + "@" + domain_part.lower()
+#         return email
+
+#     def get_by_natural_key(self, username):
+#         return self.get(**{self.model.USERNAME_FIELD: username})
+
+
+# class AbstractUser(models.Model):
+#     """
+#     An abstract base class implementing a fully featured User model with
+#     admin-compliant permissions.
+
+#     Username and password are required. Other fields are optional.
+#     """
+
+#     username_validator = UnicodeUsernameValidator()
+
+#     username = models.CharField(
+#         "username",
+#         max_length=150,
+#         unique=True,
+#         help_text="Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.",
+#         validators=[username_validator],
+#         error_messages={
+#             "unique": "A user with that username already exists.",
+#         },
+#     )
+#     email = models.EmailField("email address", blank=True)
+#     is_staff = models.BooleanField(
+#         "staff status",
+#         default=False,
+#         help_text="Designates whether the user can log into this admin site.",
+#     )
+#     is_active = models.BooleanField(
+#         "active",
+#         default=True,
+#         help_text="Designates whether this user should be treated as active. Unselect this instead of deleting accounts.",
+#     )
+#     date_joined = models.DateTimeField("date joined", default=timezone.now)
+
+#     password = models.CharField("password", max_length=128)
+#     last_login = models.DateTimeField("last login", blank=True, null=True)
+
+#     objects = UserManager()
+
+#     USERNAME_FIELD = "username"
+#     REQUIRED_FIELDS = ["email"]
+
+#     class Meta:
+#         verbose_name = "user"
+#         verbose_name_plural = "users"
+#         abstract = True
+
+#     def clean(self):
+#         setattr(self, self.USERNAME_FIELD, self.normalize_username(self.get_username()))
+#         self.email = self.__class__.objects.normalize_email(self.email)
+
+#     def __str__(self):
+#         return self.get_username()
+
+#     def get_username(self):
+#         """Return the username for this User."""
+#         return getattr(self, self.USERNAME_FIELD)
+
+#     def natural_key(self):
+#         return (self.get_username(),)
+
+#     def set_password(self, raw_password):
+#         self.password = hash_password(raw_password)
+
+#     def check_password(self, raw_password):
+#         """
+#         Return a boolean of whether the raw_password was correct. Handles
+#         hashing formats behind the scenes.
+#         """
+
+#         def setter(raw_password):
+#             self.set_password(raw_password)
+#             self.save(update_fields=["password"])
+
+#         return check_password(raw_password, self.password, setter)
+
+#     def set_unusable_password(self):
+#         # Set a value that will never be a valid hash
+#         self.password = hash_password(None)
+
+#     def has_usable_password(self):
+#         """
+#         Return False if set_unusable_password() has been called for this user.
+#         """
+#         return is_password_usable(self.password)
+
+#     def get_session_auth_hash(self):
+#         """
+#         Return an HMAC of the password field.
+#         """
+#         return self._get_session_auth_hash()
+
+#     def get_session_auth_fallback_hash(self):
+#         for fallback_secret in settings.SECRET_KEY_FALLBACKS:
+#             yield self._get_session_auth_hash(secret=fallback_secret)
+
+#     def _get_session_auth_hash(self, secret=None):
+#         key_salt = "bolt.auth.models.AbstractBaseUser.get_session_auth_hash"
+#         return salted_hmac(
+#             key_salt,
+#             self.password,
+#             secret=secret,
+#             algorithm="sha256",
+#         ).hexdigest()
+
+#     @classmethod
+#     def normalize_username(cls, username):
+#         return (
+#             unicodedata.normalize("NFKC", username)
+#             if isinstance(username, str)
+#             else username
+#         )

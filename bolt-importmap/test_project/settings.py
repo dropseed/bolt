@@ -50,7 +50,7 @@ DATABASES = {
 
 # Password validation
 
-AUTH_PASSWORD_VALIDATORS = [
+PASSWORD_VALIDATORS = [
     {
         "NAME": "bolt.auth.password_validation.UserAttributeSimilarityValidator",
     },
